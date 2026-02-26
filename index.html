@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>YawnDemic: Global Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #1e272e; color: white; margin-top: 30px; }
+    h1 { color: #ffdd59; margin-bottom: 5px;}
+    p.subtitle { color: #808e9b; margin-top: 0; margin-bottom: 20px;}
+    canvas { background-color: #000; border-radius: 15px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); transform: scaleX(-1); }
+    .data-panel { display: flex; justify-content: center; gap: 40px; margin-top: 20px; }
+    .data-box { background-color: #485460; padding: 15px 25px; border-radius: 10px; width: 120px; }
+    .data-title { font-size: 12px; color: #d2dae2; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
+    .data-value { font-size: 32px; font-weight: bold; color: #0fbcf9; }
+    #yawn-bar { width: 400px; height: 30px; background-color: #485460; margin: 20px auto; border-radius: 15px; overflow: hidden; border: 2px solid #808e9b; }
+    #yawn-fill { width: 0%; height: 100%; background-color: #ff5e57; transition: width 0.1s; }
+    
+    /* 錄音播放區塊的樣式 */
+    #audio-playback { margin-top: 25px; padding: 20px; background-color: #2c3e50; border-radius: 15px; display: inline-block; min-width: 300px;}
+    #audio-title { font-size: 14px; color: #f1c40f; margin-bottom: 10px; font-weight: bold;}
+    audio { outline: none; border-radius: 20px; }
+  </style>
+</head>
+<body>
+
+  <h1>YawnDemic 🥱</h1>
+  <p class="subtitle">Show the world your biological weapon.</p>
+
+  <video id="input_video" style="display: none;" autoplay playsinline></video>
+  <canvas id="output_canvas" width="480" height="360"></canvas>
+
+  <div id="yawn-bar"><div id="yawn-fill"></div></div>
+
+  <div class="data-panel">
+    <div class="data-box">
+      <div class="data-title">Openness (%)</div>
+      <div class="data-value" id="mouth-score" style="color: #ff5e57;">0</div>
+    </div>
+    <div class="data-box">
+      <div class="data-title">Duration (s)</div>
+      <div class="data-value" id="current-timer" style="color: #0be881;">0.0</div>
+    </div>
+    <div class="data-box">
+      <div class="data-title">Max Time (s)</div>
+      <div class="data-value" id="max-duration" style="color: #ffd32a;">0.0</div>
+    </div>
+  </div>
+
+  <div id="audio-playback">
+    <div id="audio-title">Your Yawn Audio Will Appear Here</div>
+    <div id="audio-container"></div>
+  </div>
+
+  <script>
+    const videoElement = document.getElementById('input_video');
+    const canvasElement = document.getElementById('output_canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    
+    const scoreElement = document.getElementById('mouth-score');
+    const fillElement = document.getElementById('yawn-fill');
+    const timerElement = document.getElementById('current-timer');
+    const maxDurationElement = document.getElementById('max-duration');
+    const audioContainer = document.getElementById('audio-container');
+    const audioTitle = document.getElementById('audio-title');
+
+    // 生統與狀態變數
+    let isYawning = false;       
+    let yawn
