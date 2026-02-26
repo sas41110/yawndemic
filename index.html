@@ -2,60 +2,72 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>YawnDemic: Global Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #1e272e; color: white; margin-top: 30px; }
-    h1 { color: #ffdd59; margin-bottom: 5px;}
-    p.subtitle { color: #808e9b; margin-top: 0; margin-bottom: 20px;}
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #1e272e; color: white; margin-top: 20px; padding: 0 10px; overflow-x: hidden;}
+    h1 { color: #ffdd59; margin-bottom: 5px; font-size: 28px;}
+    p.subtitle { color: #808e9b; margin-top: 0; margin-bottom: 15px; font-size: 14px;}
     
-    #start-btn { padding: 15px 40px; font-size: 20px; font-weight: bold; background-color: #0be881; color: #1e272e; border: none; border-radius: 30px; cursor: pointer; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: 0.2s;}
-    #start-btn:active { transform: scale(0.95); }
-    
-    /* === 新增：內建瀏覽器警告區塊樣式 === */
-    #iab-warning { display: none; background-color: #ff3838; color: white; padding: 20px; border-radius: 15px; width: 80%; max-width: 400px; margin: 0 auto 20px auto; font-weight: bold; line-height: 1.5; box-shadow: 0 4px 15px rgba(255,56,56,0.4);}
-    
+    /* 新增：不准遮嘴巴的搞笑警告 */
+    .rule-warning { color: #ff9f43; font-size: 12px; font-weight: bold; background-color: rgba(255, 159, 67, 0.1); padding: 8px; border-radius: 8px; margin-bottom: 15px; border: 1px dashed #ff9f43;}
+
+    #start-btn { padding: 15px 30px; font-size: 18px; font-weight: bold; background-color: #0be881; color: #1e272e; border: none; border-radius: 30px; cursor: pointer; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
+    #iab-warning { display: none; background-color: #ff3838; color: white; padding: 20px; border-radius: 15px; font-weight: bold; margin-bottom: 20px;}
     #main-app { display: none; }
-    canvas { background-color: #000; border-radius: 15px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); transform: scaleX(-1); max-width: 100%; height: auto; }
-    .data-panel { display: flex; justify-content: center; gap: 20px; margin-top: 20px; flex-wrap: wrap;}
-    .data-box { background-color: #485460; padding: 15px; border-radius: 10px; width: 100px; }
-    .data-title { font-size: 11px; color: #d2dae2; margin-bottom: 5px; text-transform: uppercase;}
-    .data-value { font-size: 28px; font-weight: bold; color: #0fbcf9; }
-    #yawn-bar { width: 90%; max-width: 400px; height: 30px; background-color: #485460; margin: 20px auto; border-radius: 15px; overflow: hidden; border: 2px solid #808e9b; }
+    
+    /* 修復畫面擠扁問題：使用 object-fit 完美適應手機 */
+    canvas { 
+      background-color: #000; 
+      border-radius: 15px; 
+      box-shadow: 0 8px 16px rgba(0,0,0,0.5); 
+      transform: scaleX(-1); /* 鏡像翻轉 */
+      width: 100%; 
+      max-width: 360px; 
+      aspect-ratio: 3/4; /* 設定為直向比例 */
+      object-fit: cover; /* 讓畫面不變形，自動裁切填滿 */
+    }
+
+    .data-panel { display: flex; justify-content: center; gap: 10px; margin-top: 15px;}
+    .data-box { background-color: #485460; padding: 10px; border-radius: 10px; flex: 1; max-width: 110px;}
+    .data-title { font-size: 10px; color: #d2dae2; margin-bottom: 5px; text-transform: uppercase;}
+    .data-value { font-size: 24px; font-weight: bold; color: #0fbcf9; }
+    #yawn-bar { width: 100%; max-width: 360px; height: 25px; background-color: #485460; margin: 15px auto; border-radius: 15px; overflow: hidden; border: 2px solid #808e9b; }
     #yawn-fill { width: 0%; height: 100%; background-color: #ff5e57; transition: width 0.1s; }
     
-    #audio-playback { margin-top: 25px; padding: 20px; background-color: #2c3e50; border-radius: 15px; display: inline-block; width: 90%; max-width: 400px; box-sizing: border-box;}
-    #audio-title { font-size: 14px; color: #f1c40f; margin-bottom: 10px; font-weight: bold;}
-    audio { outline: none; border-radius: 20px; width: 100%; }
+    /* 錄影播放區塊 */
+    #media-playback { margin-top: 20px; padding: 15px; background-color: #2c3e50; border-radius: 15px; width: 100%; max-width: 360px; box-sizing: border-box; margin-left: auto; margin-right: auto;}
+    #media-title { font-size: 14px; color: #f1c40f; margin-bottom: 10px; font-weight: bold;}
+    video.playback-video { width: 100%; border-radius: 10px; outline: none; background-color: #000; }
   </style>
 </head>
 <body>
 
   <h1>YawnDemic 🥱</h1>
   <p class="subtitle">Show the world your biological weapon.</p>
+  
+  <div id="iab-warning">🚨 Please tap [ ⋮ ] and select "Open in Browser" to enable camera!</div>
 
-  <div id="iab-warning">
-    🚨 OOPS! <br><br>
-    LINE / IG blocked the camera.<br>
-    Please tap the top-right corner [ ⋮ ] and select <b>"Open in Browser"</b> or <b>"用預設瀏覽器開啟"</b> to play!
-  </div>
-
-  <button id="start-btn">Tap to Start (Allow Camera & Mic)</button>
+  <button id="start-btn">Tap to Start (Camera & Mic)</button>
 
   <div id="main-app">
+    <div class="rule-warning">⚠️ PROTOCOL: Do NOT cover your mouth. Let it out!</div>
+
     <video id="input_video" style="display: none;" autoplay playsinline muted></video>
-    <canvas id="output_canvas" width="480" height="360"></canvas>
+    <canvas id="output_canvas" width="480" height="640"></canvas>
+    
     <div id="yawn-bar"><div id="yawn-fill"></div></div>
+    
     <div class="data-panel">
-      <div class="data-box"><div class="data-title">Openness (%)</div><div class="data-value" id="mouth-score" style="color: #ff5e57;">0</div></div>
-      <div class="data-box"><div class="data-title">Duration (s)</div><div class="data-value" id="current-timer" style="color: #0be881;">0.0</div></div>
-      <div class="data-box"><div class="data-title">Max Time (s)</div><div class="data-value" id="max-duration" style="color: #ffd32a;">0.0</div></div>
+      <div class="data-box"><div class="data-title">Openness</div><div class="data-value" id="mouth-score" style="color: #ff5e57;">0%</div></div>
+      <div class="data-box"><div class="data-title">Duration</div><div class="data-value" id="current-timer" style="color: #0be881;">0.0s</div></div>
     </div>
-    <div id="audio-playback">
-      <div id="audio-title">Your Yawn Audio Will Appear Here</div>
-      <div id="audio-container"></div>
+
+    <div id="media-playback">
+      <div id="media-title">Target Acquired. Watch your yawn:</div>
+      <div id="media-container"></div>
     </div>
   </div>
 
@@ -64,18 +76,10 @@
     const warningBox = document.getElementById('iab-warning');
     const mainApp = document.getElementById('main-app');
     
-    // === 新增：偵測是否為 LINE, IG 或 FB 的內建瀏覽器 ===
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    const isLINE = (userAgent.indexOf("Line") > -1);
-    const isIG = (userAgent.indexOf("Instagram") > -1);
-    const isFB = (userAgent.indexOf("FBAV") > -1 || userAgent.indexOf("FBAN") > -1);
-
-    if (isLINE || isIG || isFB) {
-      // 如果是，隱藏開始按鈕，顯示警告訊息
-      startBtn.style.display = 'none';
-      warningBox.style.display = 'block';
+    if (userAgent.indexOf("Line") > -1 || userAgent.indexOf("Instagram") > -1 || userAgent.indexOf("FB") > -1) {
+      startBtn.style.display = 'none'; warningBox.style.display = 'block';
     }
-    // ===================================================
 
     const videoElement = document.getElementById('input_video');
     const canvasElement = document.getElementById('output_canvas');
@@ -83,39 +87,49 @@
     const scoreElement = document.getElementById('mouth-score');
     const fillElement = document.getElementById('yawn-fill');
     const timerElement = document.getElementById('current-timer');
-    const maxDurationElement = document.getElementById('max-duration');
-    const audioContainer = document.getElementById('audio-container');
-    const audioTitle = document.getElementById('audio-title');
+    const mediaContainer = document.getElementById('media-container');
+    const mediaTitle = document.getElementById('media-title');
 
-    let isYawning = false; let yawnStartTime = 0; let maxYawnTime = 0; const YAWN_THRESHOLD = 70;   
-    let mediaRecorder; let audioChunks = [];
+    let isYawning = false; let yawnStartTime = 0; const YAWN_THRESHOLD = 70;   
+    let mediaRecorder; let mediaChunks = [];
+    let combinedStream; // 儲存影音混合串流
     
-    const faceMesh = new FaceMesh({locateFile: (file) => { return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`; }});
+    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
     faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
     faceMesh.onResults(function(results) {
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+      
+      // 在畫面上畫一點生化追蹤網格，看起來更專業！
       if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
         const landmarks = results.multiFaceLandmarks[0];
+        
+        // 抓取嘴巴開合度
         const mouthOpenness = Math.abs(landmarks[14].y - landmarks[13].y);
         let score = Math.round((mouthOpenness / 0.08) * 100);
         if (score > 100) score = 100;
-        scoreElement.innerText = score; fillElement.style.width = score + '%';
+        
+        scoreElement.innerText = score + '%'; 
+        fillElement.style.width = score + '%';
 
         if (score >= YAWN_THRESHOLD) {
           if (!isYawning) {
             isYawning = true; yawnStartTime = Date.now();
-            if (mediaRecorder && mediaRecorder.state === 'inactive') { mediaRecorder.start(); audioTitle.innerText = "🔴 Recording your biological weapon..."; }
+            if (mediaRecorder && mediaRecorder.state === 'inactive') { 
+              mediaRecorder.start(); 
+              mediaTitle.innerText = "🔴 Recording Video..."; 
+              mediaTitle.style.color = "#ff5e57";
+            }
           }
-          timerElement.innerText = ((Date.now() - yawnStartTime) / 1000).toFixed(1);
+          timerElement.innerText = ((Date.now() - yawnStartTime) / 1000).toFixed(1) + 's';
           fillElement.style.backgroundColor = '#0be881'; 
         } else {
           if (isYawning) {
-            isYawning = false; let finalDuration = (Date.now() - yawnStartTime) / 1000;
+            isYawning = false; 
             if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-            if (finalDuration > maxYawnTime) { maxYawnTime = finalDuration; maxDurationElement.innerText = maxYawnTime.toFixed(1); }
-            timerElement.innerText = '0.0'; 
+            timerElement.innerText = '0.0s'; 
+            mediaTitle.style.color = "#f1c40f";
           }
           fillElement.style.backgroundColor = '#ff5e57'; 
         }
@@ -123,22 +137,55 @@
     });
 
     startBtn.addEventListener('click', () => {
-      startBtn.innerText = "Loading..."; 
+      startBtn.innerText = "Initializing System..."; 
+      
+      // 1. 取得麥克風聲音
       navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          mediaRecorder = new MediaRecorder(stream);
-          mediaRecorder.ondataavailable = event => { if (event.data.size > 0) audioChunks.push(event.data); };
+        .then(audioStream => {
+          
+          // 2. 從 Canvas 取得影像串流 (每秒 30 幀)
+          const canvasStream = canvasElement.captureStream(30);
+          
+          // 3. 把聲音跟影像「縫合」在一起
+          combinedStream = new MediaStream([
+            ...canvasStream.getVideoTracks(),
+            ...audioStream.getAudioTracks()
+          ]);
+
+          // 4. 設定錄影器 (錄製包含聲音的影片)
+          mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
+          mediaRecorder.ondataavailable = event => { if (event.data.size > 0) mediaChunks.push(event.data); };
           mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audioEl = document.createElement('audio'); audioEl.controls = true; audioEl.src = audioUrl;
-            audioContainer.innerHTML = ''; audioContainer.appendChild(audioEl);
-            audioTitle.innerText = "Target Acquired. Listen to your Yawn:"; audioChunks = []; 
+            const videoBlob = new Blob(mediaChunks, { type: 'video/webm' });
+            const videoUrl = URL.createObjectURL(videoBlob);
+            
+            // 產生 <video> 標籤播放
+            const vidEl = document.createElement('video'); 
+            vidEl.className = 'playback-video';
+            vidEl.controls = true; 
+            vidEl.src = videoUrl;
+            
+            mediaContainer.innerHTML = ''; 
+            mediaContainer.appendChild(vidEl);
+            mediaTitle.innerText = "Target Acquired. Watch your yawn:"; 
+            mediaChunks = []; 
           };
-          const camera = new Camera(videoElement, { onFrame: async () => { await faceMesh.send({image: videoElement}); }, width: 480, height: 360 });
-          camera.start().then(() => { startBtn.style.display = 'none'; mainApp.style.display = 'block'; });
+          
+          // 5. 啟動相機模型
+          const camera = new Camera(videoElement, { 
+            onFrame: async () => { await faceMesh.send({image: videoElement}); }, 
+            width: 480, height: 640 
+          });
+          
+          camera.start().then(() => { 
+            startBtn.style.display = 'none'; 
+            mainApp.style.display = 'block'; 
+          });
         })
-        .catch(err => { alert("Oops! 必須允許相機和麥克風權限才能進行測驗喔！"); startBtn.innerText = "Try Again"; });
+        .catch(err => { 
+          alert("Oops! 必須允許相機和麥克風權限喔！"); 
+          startBtn.innerText = "Try Again"; 
+        });
     });
   </script>
 </body>
