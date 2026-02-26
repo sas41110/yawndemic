@@ -11,13 +11,13 @@
     h1 { color: #ffdd59; margin-bottom: 5px;}
     p.subtitle { color: #808e9b; margin-top: 0; margin-bottom: 20px;}
     
-    /* 大大的啟動按鈕 */
     #start-btn { padding: 15px 40px; font-size: 20px; font-weight: bold; background-color: #0be881; color: #1e272e; border: none; border-radius: 30px; cursor: pointer; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: 0.2s;}
     #start-btn:active { transform: scale(0.95); }
     
-    /* 預設先隱藏主畫面，授權後才顯示 */
-    #main-app { display: none; }
+    /* === 新增：內建瀏覽器警告區塊樣式 === */
+    #iab-warning { display: none; background-color: #ff3838; color: white; padding: 20px; border-radius: 15px; width: 80%; max-width: 400px; margin: 0 auto 20px auto; font-weight: bold; line-height: 1.5; box-shadow: 0 4px 15px rgba(255,56,56,0.4);}
     
+    #main-app { display: none; }
     canvas { background-color: #000; border-radius: 15px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); transform: scaleX(-1); max-width: 100%; height: auto; }
     .data-panel { display: flex; justify-content: center; gap: 20px; margin-top: 20px; flex-wrap: wrap;}
     .data-box { background-color: #485460; padding: 15px; border-radius: 10px; width: 100px; }
@@ -36,29 +36,23 @@
   <h1>YawnDemic 🥱</h1>
   <p class="subtitle">Show the world your biological weapon.</p>
 
+  <div id="iab-warning">
+    🚨 OOPS! <br><br>
+    LINE / IG blocked the camera.<br>
+    Please tap the top-right corner [ ⋮ ] and select <b>"Open in Browser"</b> or <b>"用預設瀏覽器開啟"</b> to play!
+  </div>
+
   <button id="start-btn">Tap to Start (Allow Camera & Mic)</button>
 
   <div id="main-app">
-    <video id="input_video" style="display: none;" autoplay playsinline></video>
+    <video id="input_video" style="display: none;" autoplay playsinline muted></video>
     <canvas id="output_canvas" width="480" height="360"></canvas>
-
     <div id="yawn-bar"><div id="yawn-fill"></div></div>
-
     <div class="data-panel">
-      <div class="data-box">
-        <div class="data-title">Openness (%)</div>
-        <div class="data-value" id="mouth-score" style="color: #ff5e57;">0</div>
-      </div>
-      <div class="data-box">
-        <div class="data-title">Duration (s)</div>
-        <div class="data-value" id="current-timer" style="color: #0be881;">0.0</div>
-      </div>
-      <div class="data-box">
-        <div class="data-title">Max Time (s)</div>
-        <div class="data-value" id="max-duration" style="color: #ffd32a;">0.0</div>
-      </div>
+      <div class="data-box"><div class="data-title">Openness (%)</div><div class="data-value" id="mouth-score" style="color: #ff5e57;">0</div></div>
+      <div class="data-box"><div class="data-title">Duration (s)</div><div class="data-value" id="current-timer" style="color: #0be881;">0.0</div></div>
+      <div class="data-box"><div class="data-title">Max Time (s)</div><div class="data-value" id="max-duration" style="color: #ffd32a;">0.0</div></div>
     </div>
-
     <div id="audio-playback">
       <div id="audio-title">Your Yawn Audio Will Appear Here</div>
       <div id="audio-container"></div>
@@ -67,11 +61,25 @@
 
   <script>
     const startBtn = document.getElementById('start-btn');
+    const warningBox = document.getElementById('iab-warning');
     const mainApp = document.getElementById('main-app');
+    
+    // === 新增：偵測是否為 LINE, IG 或 FB 的內建瀏覽器 ===
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isLINE = (userAgent.indexOf("Line") > -1);
+    const isIG = (userAgent.indexOf("Instagram") > -1);
+    const isFB = (userAgent.indexOf("FBAV") > -1 || userAgent.indexOf("FBAN") > -1);
+
+    if (isLINE || isIG || isFB) {
+      // 如果是，隱藏開始按鈕，顯示警告訊息
+      startBtn.style.display = 'none';
+      warningBox.style.display = 'block';
+    }
+    // ===================================================
+
     const videoElement = document.getElementById('input_video');
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
-    
     const scoreElement = document.getElementById('mouth-score');
     const fillElement = document.getElementById('yawn-fill');
     const timerElement = document.getElementById('current-timer');
@@ -79,58 +87,34 @@
     const audioContainer = document.getElementById('audio-container');
     const audioTitle = document.getElementById('audio-title');
 
-    let isYawning = false;       
-    let yawnStartTime = 0;       
-    let maxYawnTime = 0;         
-    const YAWN_THRESHOLD = 70;   
-
-    let mediaRecorder;
-    let audioChunks = [];
+    let isYawning = false; let yawnStartTime = 0; let maxYawnTime = 0; const YAWN_THRESHOLD = 70;   
+    let mediaRecorder; let audioChunks = [];
     
-    // 初始化臉部辨識模型
-    const faceMesh = new FaceMesh({locateFile: (file) => {
-      return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-    }});
+    const faceMesh = new FaceMesh({locateFile: (file) => { return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`; }});
     faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
     faceMesh.onResults(function(results) {
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-
       if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
         const landmarks = results.multiFaceLandmarks[0];
-        const upperLip = landmarks[13];
-        const lowerLip = landmarks[14];
-
-        const mouthOpenness = Math.abs(lowerLip.y - upperLip.y);
+        const mouthOpenness = Math.abs(landmarks[14].y - landmarks[13].y);
         let score = Math.round((mouthOpenness / 0.08) * 100);
         if (score > 100) score = 100;
-
-        scoreElement.innerText = score;
-        fillElement.style.width = score + '%';
+        scoreElement.innerText = score; fillElement.style.width = score + '%';
 
         if (score >= YAWN_THRESHOLD) {
           if (!isYawning) {
-            isYawning = true;
-            yawnStartTime = Date.now();
-            if (mediaRecorder && mediaRecorder.state === 'inactive') {
-              mediaRecorder.start();
-              audioTitle.innerText = "🔴 Recording your biological weapon...";
-            }
+            isYawning = true; yawnStartTime = Date.now();
+            if (mediaRecorder && mediaRecorder.state === 'inactive') { mediaRecorder.start(); audioTitle.innerText = "🔴 Recording your biological weapon..."; }
           }
           timerElement.innerText = ((Date.now() - yawnStartTime) / 1000).toFixed(1);
           fillElement.style.backgroundColor = '#0be881'; 
         } else {
           if (isYawning) {
-            isYawning = false;
-            let finalDuration = (Date.now() - yawnStartTime) / 1000;
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-              mediaRecorder.stop();
-            }
-            if (finalDuration > maxYawnTime) {
-              maxYawnTime = finalDuration;
-              maxDurationElement.innerText = maxYawnTime.toFixed(1);
-            }
+            isYawning = false; let finalDuration = (Date.now() - yawnStartTime) / 1000;
+            if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+            if (finalDuration > maxYawnTime) { maxYawnTime = finalDuration; maxDurationElement.innerText = maxYawnTime.toFixed(1); }
             timerElement.innerText = '0.0'; 
           }
           fillElement.style.backgroundColor = '#ff5e57'; 
@@ -138,11 +122,8 @@
       }
     });
 
-    // === 核心修改：等待使用者點擊按鈕後，才開始要求權限 ===
     startBtn.addEventListener('click', () => {
-      startBtn.innerText = "Loading..."; // 讓使用者知道正在載入
-      
-      // 1. 要求麥克風權限
+      startBtn.innerText = "Loading..."; 
       navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
           mediaRecorder = new MediaRecorder(stream);
@@ -150,29 +131,14 @@
           mediaRecorder.onstop = () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             const audioUrl = URL.createObjectURL(audioBlob);
-            const audioEl = document.createElement('audio');
-            audioEl.controls = true; audioEl.src = audioUrl;
+            const audioEl = document.createElement('audio'); audioEl.controls = true; audioEl.src = audioUrl;
             audioContainer.innerHTML = ''; audioContainer.appendChild(audioEl);
-            audioTitle.innerText = "Target Acquired. Listen to your Yawn:";
-            audioChunks = []; 
+            audioTitle.innerText = "Target Acquired. Listen to your Yawn:"; audioChunks = []; 
           };
-          
-          // 2. 麥克風成功後，啟動相機
-          const camera = new Camera(videoElement, {
-            onFrame: async () => { await faceMesh.send({image: videoElement}); },
-            width: 480, height: 360
-          });
-          
-          camera.start().then(() => {
-            // 全部成功後，隱藏按鈕，顯示主畫面
-            startBtn.style.display = 'none';
-            mainApp.style.display = 'block';
-          });
+          const camera = new Camera(videoElement, { onFrame: async () => { await faceMesh.send({image: videoElement}); }, width: 480, height: 360 });
+          camera.start().then(() => { startBtn.style.display = 'none'; mainApp.style.display = 'block'; });
         })
-        .catch(err => {
-          alert("Oops! 必須允許相機和麥克風權限才能進行測驗喔！");
-          startBtn.innerText = "Try Again";
-        });
+        .catch(err => { alert("Oops! 必須允許相機和麥克風權限才能進行測驗喔！"); startBtn.innerText = "Try Again"; });
     });
   </script>
 </body>
